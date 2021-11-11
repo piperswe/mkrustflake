@@ -108,17 +108,18 @@
                     inherit packages;
                   };
                 });
+            natives = (flake-utils.lib.eachSystem nativeSystems (system:
+              let
+                pkgs = import nixpkgs {
+                  inherit system;
+                  overlays = [
+                    rust-overlay.overlay
+                  ];
+                };
+              in
+              systemOutputs pkgs));
           in
-          (flake-utils.lib.eachSystem nativeSystems (system:
-          let
-            pkgs = import nixpkgs {
-              inherit system;
-              overlays = [
-                rust-overlay.overlay
-              ];
-            };
-          in
-          systemOutputs pkgs)) // rec {
+          natives // rec {
             cross = genAttrs nativeSystems
               (system:
                 genAttrs crossSystems
@@ -134,9 +135,11 @@
                     systemOutputs pkgs
                   )
               );
-            hydraJobs.cross = genAttrs nativeSystems (system:
-              genAttrs crossSystems (crossSystem: cross.${system}.${crossSystem}.hydraJobs)
-            );
+            hydraJobs = natives.hydraJobs // {
+              cross = genAttrs nativeSystems (system:
+                genAttrs crossSystems (crossSystem: cross.${system}.${crossSystem}.hydraJobs)
+              );
+            };
           };
       };
     };
